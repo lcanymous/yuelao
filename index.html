@@ -104,7 +104,7 @@
         </div>
 
         <!-- 步驟面板容器 -->
-        <div class="relative overflow-hidden">
+        <div class="relative">
 
             <!-- 步驟一：靈魂檔案 -->
             <div id="step-1" class="step-panel active glass-card p-6 rounded-3xl space-y-5">
@@ -280,7 +280,7 @@
                     <button onclick="goStep(2)" class="px-6 py-3 rounded-2xl border border-white/10 text-slate-400 flex items-center gap-2 hover:bg-white/5 transition-all">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i> 上一步
                     </button>
-                    <button onclick="startMatching()" class="yuelao-gradient px-8 py-3 rounded-2xl font-black text-yellow-500 flex items-center gap-3 hover:scale-[1.02] transition-all group">
+                    <button onclick="startMatching()" style="touch-action:manipulation" class="yuelao-gradient px-8 py-3 rounded-2xl font-black text-yellow-500 flex items-center gap-3 hover:scale-[1.02] transition-all group">
                         啟動月老演算 <i data-lucide="zap" class="w-4 h-4 fill-current group-hover:animate-bounce"></i>
                     </button>
                 </div>

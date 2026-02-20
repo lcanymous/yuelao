@@ -13,38 +13,36 @@ function goStep(next) {
 
     const prevEl = document.getElementById(`step-${prev}`);
     const nextEl = document.getElementById(`step-${next}`);
-    const dir    = next > prev ? -1 : 1; // -1 = slide left out, 1 = slide right out
 
-    // 1. 先把舊的滑出去（不改 display，保持空間）
-    prevEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+    // 只用 opacity 過場，不碰 transform（iOS overflow 陷阱）
+    prevEl.style.transition = 'opacity 0.22s ease';
     prevEl.style.opacity    = '0';
-    prevEl.style.transform  = `translateX(${dir * 40}px)`;
+    prevEl.style.pointerEvents = 'none';
 
-    // 2. 準備新的（先隱藏在反方向）
-    nextEl.style.transition = 'none';
-    nextEl.style.opacity    = '0';
-    nextEl.style.transform  = `translateX(${dir * -40}px)`;
-    nextEl.style.display    = 'block';
-
-    // 3. 舊的動畫結束後，隱藏舊的，滑入新的
     setTimeout(() => {
-        prevEl.style.display = 'none';
-        prevEl.style.transition = '';
-        prevEl.style.opacity    = '';
-        prevEl.style.transform  = '';
+        // 隱藏舊的
+        prevEl.style.display       = 'none';
+        prevEl.style.transition    = '';
+        prevEl.style.opacity       = '';
+        prevEl.style.pointerEvents = '';
+
+        // 顯示新的（先透明，再淡入）
+        nextEl.style.display    = 'block';
+        nextEl.style.opacity    = '0';
+        nextEl.style.transition = 'none';
 
         requestAnimationFrame(() => {
-            nextEl.style.transition = 'opacity 0.28s ease, transform 0.28s ease';
-            nextEl.style.opacity    = '1';
-            nextEl.style.transform  = 'translateX(0)';
-        });
+            requestAnimationFrame(() => {
+                nextEl.style.transition = 'opacity 0.25s ease';
+                nextEl.style.opacity    = '1';
 
-        setTimeout(() => {
-            nextEl.style.transition = '';
-            nextEl.style.opacity    = '';
-            nextEl.style.transform  = '';
-        }, 300);
-    }, 260);
+                setTimeout(() => {
+                    nextEl.style.transition = '';
+                    nextEl.style.opacity    = '';
+                }, 280);
+            });
+        });
+    }, 230);
 
     currentStep = next;
 
