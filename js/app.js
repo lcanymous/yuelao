@@ -89,9 +89,9 @@ async function startMatching() {
 
 function infoPill(label, value) {
     if (!value) return '';
-    return `<span class="inline-flex flex-col bg-white/5 rounded-xl px-3 py-1.5 text-center">
-        <span class="text-[9px] text-slate-500 leading-tight">${label}</span>
-        <span class="text-xs text-white font-medium leading-tight mt-0.5">${value}</span>
+    return `<span class="inline-flex items-center gap-1 bg-white/5 rounded-lg px-2.5 py-1">
+        <span class="text-[9px] text-slate-500">${label}：</span>
+        <span class="text-[11px] text-white font-medium">${value}</span>
     </span>`;
 }
 
@@ -107,13 +107,13 @@ function renderResults(matches) {
 
     matches.forEach((m, i) => {
         const div = document.createElement('div');
-        div.className = `match-card glass-card p-6 rounded-3xl space-y-4 relative ${
+        div.className = `match-card glass-card p-5 rounded-3xl relative ${
             i === 0 ? 'border border-yellow-500/40 shadow-lg shadow-yellow-500/10' : 'border border-white/5'
         }`;
 
-        // 只取中文名字（第一個中文詞，去掉括號內的英文）
         const chName = (m.name || '').replace(/\(.*?\)/g, '').trim();
         const initial = chName ? chName.charAt(0) : '？';
+        const score   = m.match_score || 0;
 
         const pills = [
             infoPill('職業',  m.job),
@@ -126,43 +126,49 @@ function renderResults(matches) {
         div.innerHTML = `
             ${i === 0 ? `<div class="absolute -top-3 left-5 bg-yellow-500 text-black text-[10px] font-black px-3 py-1 rounded-full tracking-widest">命定首選 ✦</div>` : ''}
 
-            <!-- 頭像 + 名字 + 契合度 -->
-            <div class="flex items-center gap-4 pt-1">
-                <div class="w-14 h-14 rounded-full yuelao-gradient flex items-center justify-center font-black text-yellow-500 border-2 border-yellow-500/40 text-xl flex-shrink-0">
-                    ${initial}
+            <div class="flex gap-4 pt-1">
+
+                <!-- 左：頭像 + 分數 -->
+                <div class="flex flex-col items-center gap-1.5 flex-shrink-0 w-14">
+                    <div class="w-14 h-14 rounded-full yuelao-gradient flex items-center justify-center font-black text-yellow-500 border-2 border-yellow-500/40 text-xl">
+                        ${initial}
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-black text-yellow-400 leading-none">${score}%</div>
+                        <div class="text-[8px] text-slate-500 leading-tight mt-0.5">契合度</div>
+                    </div>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <h4 class="text-xl font-bold truncate">${chName}
-                        <span class="text-xs text-slate-500 font-normal ml-1">${m.gender || ''}</span>
-                    </h4>
-                    <p class="text-xs text-slate-400 mt-0.5">${m.age} 歲 &nbsp;·&nbsp; ${m.mbti || ''} &nbsp;·&nbsp; ${m.zodiac || ''}</p>
+
+                <!-- 右：所有資訊 -->
+                <div class="flex-1 min-w-0 space-y-3">
+                    <!-- 姓名 -->
+                    <div>
+                        <h4 class="font-bold text-base leading-snug">
+                            ${chName} <span class="text-xs text-slate-500 font-normal">${m.gender || ''}</span>
+                        </h4>
+                        <p class="text-xs text-slate-400 mt-0.5">${m.age} 歲 · ${m.mbti || ''} · ${m.zodiac || ''}</p>
+                    </div>
+
+                    <!-- 契合度條 -->
+                    <div class="w-full bg-white/5 h-0.5 rounded-full overflow-hidden">
+                        <div class="bg-gradient-to-r from-red-500 to-yellow-500 h-full rounded-full" style="width:${score}%"></div>
+                    </div>
+
+                    <!-- Info pills -->
+                    <div class="flex flex-wrap gap-1.5">${pills}</div>
+
+                    <!-- 氛圍 -->
+                    <p class="text-xs italic text-slate-300 bg-white/5 rounded-xl px-3 py-2">"${m.vibe || '神秘氛圍'}"</p>
+
+                    <!-- 命定理由 -->
+                    <p class="text-[11px] text-slate-400 leading-relaxed">${m.reason || ''}</p>
+
+                    <!-- 魅力點 -->
+                    <div class="text-[10px] text-yellow-500/60 bg-yellow-500/5 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                        <i data-lucide="star" class="w-3 h-3 flex-shrink-0"></i>
+                        <span>魅力點：${m.key_trait || '魅力十足'}</span>
+                    </div>
                 </div>
-                <div class="text-right flex-shrink-0">
-                    <div class="text-2xl font-black text-yellow-400">${m.match_score || 0}%</div>
-                    <div class="text-[9px] text-slate-500 uppercase tracking-wide">契合度</div>
-                </div>
-            </div>
-
-            <!-- 契合度條 -->
-            <div class="w-full bg-white/5 h-1 rounded-full overflow-hidden">
-                <div class="bg-gradient-to-r from-red-500 to-yellow-500 h-full rounded-full" style="width:${m.match_score || 0}%"></div>
-            </div>
-
-            <!-- Info pills -->
-            <div class="flex flex-wrap gap-2">${pills}</div>
-
-            <!-- 氛圍 -->
-            <div class="bg-white/5 rounded-2xl px-4 py-3">
-                <p class="text-sm italic text-slate-300">"${m.vibe || '神秘氛圍'}"</p>
-            </div>
-
-            <!-- 命定理由 -->
-            <p class="text-xs text-slate-400 leading-relaxed">${m.reason || ''}</p>
-
-            <!-- 魅力點 -->
-            <div class="text-[10px] text-yellow-500/60 bg-yellow-500/5 px-3 py-2 rounded-xl flex items-center gap-2">
-                <i data-lucide="star" class="w-3 h-3 flex-shrink-0"></i>
-                <span>魅力點：${m.key_trait || '魅力十足'}</span>
             </div>
         `;
         list.appendChild(div);
