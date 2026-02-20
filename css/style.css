@@ -14,6 +14,14 @@ body {
     padding: 0;
 }
 
+button {
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 /* ── Utilities ── */
 .yuelao-gradient { background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%); }
 
