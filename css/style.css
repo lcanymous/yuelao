@@ -70,8 +70,9 @@ select option { background: #1e293b; color: white; }
 .progress-bar { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
 
 /* ── Habit pills ── */
+.habit-tag { cursor: pointer; }
 .habit-tag input[type=checkbox] { display: none; }
-.habit-tag label {
+.habit-tag span {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 6px 14px; border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.12);
@@ -79,7 +80,7 @@ select option { background: #1e293b; color: white; }
     font-size: 0.75rem; cursor: pointer;
     transition: all 0.2s; user-select: none;
 }
-.habit-tag input:checked + label {
+.habit-tag input:checked + span {
     background: rgba(127, 29, 29, 0.6);
     border-color: rgba(239, 68, 68, 0.5);
     color: #fca5a5;
