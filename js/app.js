@@ -177,5 +177,17 @@ function renderResults(matches) {
 function resetApp() {
     document.getElementById('form-container').classList.remove('hidden');
     document.getElementById('results-container').classList.add('hidden');
-    goStep(1);
+    // 確保每個 step 回到正確初始狀態
+    [1, 2, 3].forEach(n => document.getElementById(`step-${n}`).classList.remove('active'));
+    currentStep = 1;
+    document.getElementById('step-1').classList.add('active');
+    // 重設進度條
+    document.getElementById('step-label').textContent   = '步驟 1 / 3';
+    document.getElementById('step-title').textContent   = '靈魂檔案';
+    document.getElementById('progress-bar').style.width = '33%';
+    [1, 2, 3].forEach(n => {
+        document.getElementById(`dot-${n}`).className =
+            `w-2 h-2 rounded-full transition-all ${n === 1 ? 'bg-yellow-500' : 'bg-white/20'}`;
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }

@@ -11,42 +11,12 @@ function goStep(next) {
     const prev = currentStep;
     if (next === prev) return;
 
-    const prevEl = document.getElementById(`step-${prev}`);
-    const nextEl = document.getElementById(`step-${next}`);
-
-    // 只用 opacity 過場，不碰 transform（iOS overflow 陷阱）
-    prevEl.style.transition = 'opacity 0.22s ease';
-    prevEl.style.opacity    = '0';
-    prevEl.style.pointerEvents = 'none';
-
-    setTimeout(() => {
-        // 隱藏舊的
-        prevEl.style.display       = 'none';
-        prevEl.style.transition    = '';
-        prevEl.style.opacity       = '';
-        prevEl.style.pointerEvents = '';
-
-        // 顯示新的（先透明，再淡入）
-        nextEl.style.display    = 'block';
-        nextEl.style.opacity    = '0';
-        nextEl.style.transition = 'none';
-
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                nextEl.style.transition = 'opacity 0.25s ease';
-                nextEl.style.opacity    = '1';
-
-                setTimeout(() => {
-                    nextEl.style.transition = '';
-                    nextEl.style.opacity    = '';
-                }, 280);
-            });
-        });
-    }, 230);
+    // 純 CSS class 切換，不動任何 inline style
+    document.getElementById(`step-${prev}`).classList.remove('active');
+    document.getElementById(`step-${next}`).classList.add('active');
 
     currentStep = next;
 
-    // 更新進度條 UI
     document.getElementById('step-label').textContent   = `步驟 ${next} / 3`;
     document.getElementById('step-title').textContent   = STEP_META[next].label;
     document.getElementById('progress-bar').style.width = STEP_META[next].progress;
