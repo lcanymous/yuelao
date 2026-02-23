@@ -8,7 +8,13 @@ exports.handler = async (event) => {
         return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured' }) };
     }
 
-    const { messages, model } = JSON.parse(event.body);
+    const { messages, model, json = true } = JSON.parse(event.body);
+
+    const body = {
+        model: model || 'qwen/qwen3.5-plus-02-15',
+        messages,
+    };
+    if (json) body.response_format = { type: 'json_object' };
 
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -16,13 +22,9 @@ exports.handler = async (event) => {
             'Authorization': `Bearer ${key}`,
             'Content-Type': 'application/json',
             'HTTP-Referer': 'https://yuelao69.netlify.app',
-            'X-Title': 'Yuelao AI App'
+            'X-Title': 'Yuelao AI App',
         },
-        body: JSON.stringify({
-            model: model || 'qwen/qwen3.5-plus-02-15',
-            messages,
-            response_format: { type: 'json_object' }
-        })
+        body: JSON.stringify(body),
     });
 
     const data = await res.json();
@@ -30,6 +32,6 @@ exports.handler = async (event) => {
     return {
         statusCode: res.status,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
     };
 };

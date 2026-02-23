@@ -1,16 +1,14 @@
 /* ── API 呼叫模組 ── */
 
-async function callProxyAPI(prompt, system) {
+async function callProxyAPI(prompt, system, { messages = null, json = true } = {}) {
+    const msgs = messages || [
+        { role: 'system', content: system },
+        { role: 'user',   content: prompt  },
+    ];
     const res = await fetch('/.netlify/functions/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            model: 'qwen/qwen3.5-plus-02-15',
-            messages: [
-                { role: 'system', content: system },
-                { role: 'user',   content: prompt  },
-            ],
-        }),
+        body: JSON.stringify({ model: 'qwen/qwen3.5-plus-02-15', messages: msgs, json }),
     });
     if (!res.ok) {
         const e = await res.json();

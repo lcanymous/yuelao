@@ -1,5 +1,7 @@
 /* ── 主應用邏輯 ── */
 
+let _chatMessages = []; // 保存對話上下文
+
 function toggleSettings() {
     document.getElementById('settings-modal').classList.toggle('hidden');
 }
@@ -43,15 +45,21 @@ async function startMatching() {
 
     if (!d.dob) { alert('請填寫出生日期。'); return; }
 
+    // 計算使用者年齡，給出合理對象年齡範圍（避免 AI 生小孩）
+    const myAge    = new Date().getFullYear() - new Date(d.dob).getFullYear();
+    const ageMin   = Math.max(18, myAge - 8);
+    const ageMax   = myAge + 8;
+
     startLoading();
 
     try {
         const system = `你是一位精通現代心理學與東方命理的 AI 月老。根據使用者資料生成 3 位符合性別要求（${d.targetGender}）的虛擬理想對象。
+重要限制：對象年齡必須在 ${ageMin}–${ageMax} 歲之間，且必須是現實生活中可能存在的成年人。
 所有回應必須使用繁體中文。
 回應必須是 JSON，包含陣列 "matches"，每筆包含：name, age, gender, mbti, zodiac, job, location, income, education, height, match_score, reason, vibe, key_trait。`;
 
-        const user = `使用者資料：
-性別：${d.myGender}，生日：${d.dob}，星座：${d.zodiac}，MBTI：${d.mbti}
+        const userMsg = `使用者資料：
+性別：${d.myGender}，生日：${d.dob}（${myAge}歲），星座：${d.zodiac}，MBTI：${d.mbti}
 職業：${d.job}，身高：${d.height}cm，體態：${d.stats}
 居住地：${d.location}，月收入：${d.income}，學歷：${d.education}
 家庭背景：${d.familyBg}，生活習慣：${d.habits}
@@ -65,18 +73,26 @@ async function startMatching() {
         let resultText = '';
 
         if (engine === 'proxy') {
-            resultText = await callProxyAPI(user, system);
+            resultText = await callProxyAPI(userMsg, system);
         } else if (engine === 'gemini') {
             if (!geminiKey) throw new Error('請先在設定中輸入 Gemini API Key');
-            resultText = await callGeminiAPI(user, system, geminiKey);
+            resultText = await callGeminiAPI(userMsg, system, geminiKey);
         } else {
             if (!openRouterKey) throw new Error('請先在設定中輸入 OpenRouter API Key');
-            resultText = await callOpenRouterAPI(openRouterKey, modelId, user, system);
+            resultText = await callOpenRouterAPI(openRouterKey, modelId, userMsg, system);
         }
 
         if (!resultText) throw new Error('AI 回傳內容為空');
         const clean   = resultText.replace(/```json|```/gi, '').trim();
         const content = JSON.parse(clean);
+
+        // 保存對話上下文供追問使用
+        _chatMessages = [
+            { role: 'system',    content: system + '\n追問時請用自然語言（繁體中文）回覆，不必回傳 JSON。' },
+            { role: 'user',      content: userMsg },
+            { role: 'assistant', content: resultText },
+        ];
+
         renderResults(content.matches);
 
     } catch (err) {
@@ -87,6 +103,75 @@ async function startMatching() {
     }
 }
 
+/* ── 追問月老 ── */
+async function askYuelao() {
+    const input = document.getElementById('chat-input');
+    const q     = input.value.trim();
+    if (!q) return;
+
+    input.value = '';
+    input.disabled = true;
+    document.getElementById('chat-send-btn').disabled = true;
+
+    appendChatMsg('user', q);
+
+    const thinkingId = appendChatMsg('yuelao', '🧓🏻 月老正在細想⋯⋯', true);
+
+    try {
+        const engine        = document.getElementById('ai-engine').value;
+        const openRouterKey = document.getElementById('api-key').value;
+        const geminiKey     = document.getElementById('gemini-key').value;
+        const modelId       = document.getElementById('model-id').value || 'qwen/qwen3.5-plus-02-15';
+
+        _chatMessages.push({ role: 'user', content: q });
+
+        let reply = '';
+        if (engine === 'proxy') {
+            reply = await callProxyAPI(null, null, { messages: _chatMessages, json: false });
+        } else if (engine === 'gemini') {
+            if (!geminiKey) throw new Error('請先設定 Gemini API Key');
+            reply = await callGeminiAPI(q, _chatMessages[0].content, geminiKey);
+        } else {
+            if (!openRouterKey) throw new Error('請先設定 OpenRouter API Key');
+            reply = await callOpenRouterAPI(openRouterKey, modelId, q, _chatMessages[0].content);
+        }
+
+        _chatMessages.push({ role: 'assistant', content: reply });
+        updateChatMsg(thinkingId, reply);
+
+    } catch (err) {
+        updateChatMsg(thinkingId, `⚠ ${err.message}`);
+    } finally {
+        input.disabled = false;
+        document.getElementById('chat-send-btn').disabled = false;
+        input.focus();
+    }
+}
+
+let _chatMsgId = 0;
+function appendChatMsg(role, text, isTemp = false) {
+    const id   = `cm-${++_chatMsgId}`;
+    const wrap = document.getElementById('chat-messages');
+    const div  = document.createElement('div');
+    div.id        = id;
+    div.className = role === 'user'
+        ? 'flex justify-end'
+        : 'flex justify-start items-start gap-2';
+    div.innerHTML = role === 'user'
+        ? `<div class="bg-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%] text-sm">${text}</div>`
+        : `<span class="text-xl flex-shrink-0 mt-0.5">🧓🏻</span>
+           <div class="bg-red-950/40 border border-red-500/20 rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-[85%] text-sm text-slate-300 leading-relaxed">${text}</div>`;
+    wrap.appendChild(div);
+    div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    return id;
+}
+
+function updateChatMsg(id, text) {
+    const el = document.querySelector(`#${id} div:last-child`);
+    if (el) el.textContent = text;
+}
+
+/* ── 結果渲染 ── */
 function infoPill(label, value) {
     if (!value) return '';
     return `<span class="inline-flex items-center gap-1 bg-white/5 rounded-lg px-2.5 py-1">
@@ -98,6 +183,8 @@ function infoPill(label, value) {
 function renderResults(matches) {
     const list = document.getElementById('match-list');
     list.innerHTML = '';
+    _chatMsgId = 0;
+    document.getElementById('chat-messages').innerHTML = '';
 
     if (!matches?.length) {
         alert('AI 月老未能生成對象，請重試或調整條件。');
@@ -125,10 +212,7 @@ function renderResults(matches) {
 
         div.innerHTML = `
             ${i === 0 ? `<div class="absolute -top-3 left-5 bg-yellow-500 text-black text-[10px] font-black px-3 py-1 rounded-full tracking-widest">命定首選 ✦</div>` : ''}
-
             <div class="flex gap-4 pt-1">
-
-                <!-- 左：頭像 + 分數 -->
                 <div class="flex flex-col items-center gap-1.5 flex-shrink-0 w-14">
                     <div class="w-14 h-14 rounded-full yuelao-gradient flex items-center justify-center font-black text-yellow-500 border-2 border-yellow-500/40 text-xl">
                         ${initial}
@@ -138,32 +222,19 @@ function renderResults(matches) {
                         <div class="text-[8px] text-slate-500 leading-tight mt-0.5">契合度</div>
                     </div>
                 </div>
-
-                <!-- 右：所有資訊 -->
                 <div class="flex-1 min-w-0 space-y-3">
-                    <!-- 姓名 -->
                     <div>
                         <h4 class="font-bold text-base leading-snug">
                             ${chName} <span class="text-xs text-slate-500 font-normal">${m.gender || ''}</span>
                         </h4>
                         <p class="text-xs text-slate-400 mt-0.5">${m.age} 歲 · ${m.mbti || ''} · ${m.zodiac || ''}</p>
                     </div>
-
-                    <!-- 契合度條 -->
                     <div class="w-full bg-white/5 h-0.5 rounded-full overflow-hidden">
                         <div class="bg-gradient-to-r from-red-500 to-yellow-500 h-full rounded-full" style="width:${score}%"></div>
                     </div>
-
-                    <!-- Info pills -->
                     <div class="flex flex-wrap gap-1.5">${pills}</div>
-
-                    <!-- 氛圍 -->
                     <p class="text-xs italic text-slate-300 bg-white/5 rounded-xl px-3 py-2">"${m.vibe || '神秘氛圍'}"</p>
-
-                    <!-- 命定理由 -->
                     <p class="text-[11px] text-slate-400 leading-relaxed">${m.reason || ''}</p>
-
-                    <!-- 魅力點 -->
                     <div class="text-[10px] text-yellow-500/60 bg-yellow-500/5 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
                         <i data-lucide="star" class="w-3 h-3 flex-shrink-0"></i>
                         <span>魅力點：${m.key_trait || '魅力十足'}</span>
@@ -177,17 +248,18 @@ function renderResults(matches) {
     lucide.createIcons();
     document.getElementById('form-container').classList.add('hidden');
     document.getElementById('results-container').classList.remove('hidden');
+    document.getElementById('chat-section').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function resetApp() {
     document.getElementById('form-container').classList.remove('hidden');
     document.getElementById('results-container').classList.add('hidden');
-    // 確保每個 step 回到正確初始狀態
+    document.getElementById('chat-section').classList.add('hidden');
+    _chatMessages = [];
     [1, 2, 3].forEach(n => document.getElementById(`step-${n}`).classList.remove('active'));
     currentStep = 1;
     document.getElementById('step-1').classList.add('active');
-    // 重設進度條
     document.getElementById('step-label').textContent   = '步驟 1 / 3';
     document.getElementById('step-title').textContent   = '靈魂檔案';
     document.getElementById('progress-bar').style.width = '33%';
