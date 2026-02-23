@@ -244,24 +244,58 @@ function buildImgUrl(m) {
         if ((m.vibe || '').includes(zh)) { vibe = en; break; }
     }
     const seed   = Math.floor(Math.random() * 99999);
-    const prompt = encodeURIComponent(`${age} year old Asian ${gender} ${vibe} portrait, soft light, photo`);
-    return `https://image.pollinations.ai/prompt/${prompt}?model=flux&width=400&height=400&seed=${seed}&nologo=true`;
+    const prompt = `${age} year old Asian ${gender} ${vibe} portrait soft light photo`;
+    // 透過 Netlify function proxy，避免瀏覽器 CORS 問題
+    return `/.netlify/functions/genimage?prompt=${encodeURIComponent(prompt)}&seed=${seed}`;
 }
 
-function loadMatchImage(wrapId, url, initial) {
+function dicebearUrl(name) {
+    // Fallback：DiceBear 插畫頭像，快速穩定
+    const style = Math.random() > 0.5 ? 'lorelei' : 'adventurer';
+    return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(name)}&backgroundColor=7f1d1d,450a0a`;
+}
+
+function loadMatchImage(wrapId, url, name) {
     const wrap = document.getElementById(wrapId);
     if (!wrap) return;
-    const img = new Image();
+
+    const img    = new Image();
+    let   loaded = false;
+
     img.onload = () => {
+        loaded = true;
         wrap.innerHTML = '';
         const el = document.createElement('img');
         el.src       = url;
-        el.alt       = initial;
+        el.alt       = name;
         el.className = 'w-full h-full object-cover';
         wrap.appendChild(el);
     };
-    img.onerror = () => { /* 保持 fallback 頭像，不動作 */ };
+
+    // 如果 proxy 超時（20s），改用 DiceBear 插畫頭像
+    img.onerror = () => {
+        if (!loaded) loadDicebear(wrapId, name);
+    };
+
+    setTimeout(() => {
+        if (!loaded) {
+            img.src = '';
+            loadDicebear(wrapId, name);
+        }
+    }, 20000);
+
     img.src = url;
+}
+
+function loadDicebear(wrapId, name) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const el = document.createElement('img');
+    el.src       = dicebearUrl(name);
+    el.alt       = name;
+    el.className = 'w-full h-full object-cover p-1';
+    wrap.appendChild(el);
 }
 
 /* ── 結果渲染 ── */
