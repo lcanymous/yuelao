@@ -228,35 +228,40 @@ function updateChatMsg(id, text) {
     if (el) el.textContent = text;
 }
 
-/* ── 圖片 fallback ── */
-function handleImgError(img, initial) {
-    const wrap = img.closest('.img-wrap');
-    if (wrap) wrap.innerHTML =
-        `<div class="w-full h-full yuelao-gradient flex items-center justify-center font-black text-yellow-500 text-2xl">${initial}</div>`;
+
+/* ── AI 生圖（背景非同步載入）── */
+const VIBE_MAP = {
+    '陽光': 'cheerful', '溫柔': 'gentle', '成熟': 'elegant', '文藝': 'artistic',
+    '神秘': 'mysterious', '活潑': 'lively', '知性': 'intelligent', '甜美': 'sweet',
+    '氣質': 'graceful', '理智': 'calm', '浪漫': 'romantic', '獨立': 'confident',
+};
+
+function buildImgUrl(m) {
+    const gender = m.gender === '女' ? 'woman' : 'man';
+    const age    = m.age || 25;
+    let   vibe   = 'natural';
+    for (const [zh, en] of Object.entries(VIBE_MAP)) {
+        if ((m.vibe || '').includes(zh)) { vibe = en; break; }
+    }
+    const seed   = Math.floor(Math.random() * 99999);
+    const prompt = encodeURIComponent(`${age} year old Asian ${gender} ${vibe} portrait, soft light, photo`);
+    return `https://image.pollinations.ai/prompt/${prompt}?model=flux&width=400&height=400&seed=${seed}&nologo=true`;
 }
 
-/* ── AI 生圖 ── */
-function buildImagePrompt(m) {
-    const gender  = m.gender === '女' ? 'woman' : 'man';
-    const age     = m.age || 25;
-    // 把 vibe 常見詞轉英文關鍵字給生圖模型
-    const vibeMap = {
-        '陽光': 'cheerful sunny smile', '溫柔': 'gentle warm smile', '成熟': 'mature elegant',
-        '文藝': 'artistic indie aesthetic', '神秘': 'mysterious alluring', '活潑': 'lively energetic',
-        '知性': 'intellectual sophisticated', '甜美': 'sweet lovely', '氣質': 'graceful refined',
-        '理智': 'calm composed', '浪漫': 'romantic dreamy', '獨立': 'confident independent',
-        '健身': 'athletic fit', '創意': 'creative artistic', '專業': 'professional polished',
+function loadMatchImage(wrapId, url, initial) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    const img = new Image();
+    img.onload = () => {
+        wrap.innerHTML = '';
+        const el = document.createElement('img');
+        el.src       = url;
+        el.alt       = initial;
+        el.className = 'w-full h-full object-cover';
+        wrap.appendChild(el);
     };
-    let vibeEn = 'natural attractive';
-    for (const [zh, en] of Object.entries(vibeMap)) {
-        if ((m.vibe || '').includes(zh)) { vibeEn = en; break; }
-    }
-    const seed = Math.floor(Math.random() * 9999);
-    const prompt = encodeURIComponent(
-        `portrait photo of a ${age} year old East Asian ${gender}, ${vibeEn}, lifestyle casual photo, ` +
-        `soft natural lighting, authentic, high quality, photorealistic, no text`
-    );
-    return `https://image.pollinations.ai/prompt/${prompt}?width=400&height=400&seed=${seed}&nologo=true&enhance=true`;
+    img.onerror = () => { /* 保持 fallback 頭像，不動作 */ };
+    img.src = url;
 }
 
 /* ── 結果渲染 ── */
@@ -305,24 +310,16 @@ function renderResults(matches) {
             infoPill('身高',  m.height),
         ].filter(Boolean).join('');
 
-        const imgUrl = buildImagePrompt(m);
+        const imgUrl  = buildImgUrl(m);
+        const wrapId  = `img-wrap-${i}`;
 
         div.innerHTML = `
             ${i === 0 ? `<div class="absolute -top-3 left-5 bg-yellow-500 text-black text-[10px] font-black px-3 py-1 rounded-full tracking-widest">命定首選 ✦</div>` : ''}
             <div class="flex gap-4 pt-1">
                 <div class="flex flex-col items-center gap-2 flex-shrink-0 w-20">
-                    <!-- AI 生成照片 -->
-                    <div class="img-wrap w-20 h-20 rounded-2xl overflow-hidden relative bg-white/5 border border-white/10 flex-shrink-0">
-                        <div class="absolute inset-0 flex items-center justify-center" id="img-loading-${i}">
-                            <svg class="animate-spin w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                            </svg>
-                        </div>
-                        <img src="${imgUrl}" alt="${chName}"
-                             class="w-full h-full object-cover opacity-0 transition-opacity duration-500"
-                             onload="this.style.opacity=1;document.getElementById('img-loading-${i}').style.display='none'"
-                             onerror="handleImgError(this,'${initial}')">
+                    <!-- 照片容器：先顯示字母頭像，背景載入 AI 圖 -->
+                    <div id="${wrapId}" class="w-20 h-20 rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0 yuelao-gradient flex items-center justify-center font-black text-yellow-500 text-2xl">
+                        ${initial}
                     </div>
                     <div class="text-center">
                         <div class="text-lg font-black text-yellow-400 leading-none">${score}%</div>
@@ -350,6 +347,9 @@ function renderResults(matches) {
             </div>
         `;
         list.appendChild(div);
+
+        // 背景非同步載入 AI 圖（不阻塞卡片渲染）
+        setTimeout(() => loadMatchImage(wrapId, imgUrl, initial), i * 300);
     });
 
     lucide.createIcons();
