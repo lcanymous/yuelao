@@ -228,6 +228,13 @@ function updateChatMsg(id, text) {
     if (el) el.textContent = text;
 }
 
+/* ── 圖片 fallback ── */
+function handleImgError(img, initial) {
+    const wrap = img.closest('.img-wrap');
+    if (wrap) wrap.innerHTML =
+        `<div class="w-full h-full yuelao-gradient flex items-center justify-center font-black text-yellow-500 text-2xl">${initial}</div>`;
+}
+
 /* ── AI 生圖 ── */
 function buildImagePrompt(m) {
     const gender  = m.gender === '女' ? 'woman' : 'man';
@@ -305,18 +312,17 @@ function renderResults(matches) {
             <div class="flex gap-4 pt-1">
                 <div class="flex flex-col items-center gap-2 flex-shrink-0 w-20">
                     <!-- AI 生成照片 -->
-                    <div class="w-20 h-20 rounded-2xl overflow-hidden relative bg-white/5 border border-white/10 flex-shrink-0">
-                        <div class="absolute inset-0 flex items-center justify-center text-slate-600 text-xs" id="img-loading-${i}">
-                            <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <div class="img-wrap w-20 h-20 rounded-2xl overflow-hidden relative bg-white/5 border border-white/10 flex-shrink-0">
+                        <div class="absolute inset-0 flex items-center justify-center" id="img-loading-${i}">
+                            <svg class="animate-spin w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                             </svg>
                         </div>
                         <img src="${imgUrl}" alt="${chName}"
                              class="w-full h-full object-cover opacity-0 transition-opacity duration-500"
-                             id="match-img-${i}"
                              onload="this.style.opacity=1;document.getElementById('img-loading-${i}').style.display='none'"
-                             onerror="this.closest('.relative').innerHTML='<div class=\'w-full h-full yuelao-gradient flex items-center justify-center font-black text-yellow-500 text-2xl\'>${initial}</div>'">
+                             onerror="handleImgError(this,'${initial}')">
                     </div>
                     <div class="text-center">
                         <div class="text-lg font-black text-yellow-400 leading-none">${score}%</div>
