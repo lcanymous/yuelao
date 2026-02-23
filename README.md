@@ -10,6 +10,15 @@ AI 月老根據你的生日、星座、MBTI、職業、學歷、收入與生活�
 
 ---
 
+### 🖥 CLI 版（Terminal 互動）
+
+```bash
+export OPENROUTER_API_KEY=sk-or-xxxx
+node cli/yuelao.mjs
+```
+
+---
+
 Made with 🧧 by **Lawrence Chen**
 
 *「紅線一繫，月老不負責後續。」*
