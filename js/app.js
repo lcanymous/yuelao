@@ -104,18 +104,33 @@ async function startMatching() {
 }
 
 /* ── 追問月老 ── */
+const CHAT_FREE_LIMIT = 3;
+let _chatCount = 0;
+
 async function askYuelao() {
     const input = document.getElementById('chat-input');
     const q     = input.value.trim();
     if (!q) return;
+
+    // 超過免費次數 → 顯示 Buy Me a Coffee
+    if (_chatCount >= CHAT_FREE_LIMIT) {
+        showChatPaywall();
+        return;
+    }
 
     input.value = '';
     input.disabled = true;
     document.getElementById('chat-send-btn').disabled = true;
 
     appendChatMsg('user', q);
+    _chatCount++;
 
-    const thinkingId = appendChatMsg('yuelao', '🧓🏻 月老正在細想⋯⋯', true);
+    // 剩一次時提示
+    if (_chatCount === CHAT_FREE_LIMIT) {
+        appendChatMsg('system', `⚠ 這是最後一次免費追問，月老的紅線不是無限的⋯`);
+    }
+
+    const thinkingId = appendChatMsg('yuelao', '月老正在細想⋯⋯');
 
     try {
         const engine        = document.getElementById('ai-engine').value;
@@ -139,28 +154,70 @@ async function askYuelao() {
         _chatMessages.push({ role: 'assistant', content: reply });
         updateChatMsg(thinkingId, reply);
 
+        // 用完後鎖定輸入框
+        if (_chatCount >= CHAT_FREE_LIMIT) {
+            lockChatInput();
+        }
+
     } catch (err) {
         updateChatMsg(thinkingId, `⚠ ${err.message}`);
+        _chatCount--; // 失敗不扣次數
     } finally {
-        input.disabled = false;
-        document.getElementById('chat-send-btn').disabled = false;
-        input.focus();
+        if (_chatCount < CHAT_FREE_LIMIT) {
+            input.disabled = false;
+            document.getElementById('chat-send-btn').disabled = false;
+            input.focus();
+        }
     }
 }
 
+function lockChatInput() {
+    const input = document.getElementById('chat-input');
+    const btn   = document.getElementById('chat-send-btn');
+    input.disabled = true;
+    btn.disabled   = true;
+    showChatPaywall();
+}
+
+function showChatPaywall() {
+    if (document.getElementById('chat-paywall')) return;
+    const wall = document.createElement('div');
+    wall.id          = 'chat-paywall';
+    wall.className   = 'glass-card rounded-3xl p-6 text-center space-y-4 border border-yellow-500/30';
+    wall.innerHTML   = `
+        <div class="text-3xl">🧓🏻</div>
+        <div>
+            <p class="font-bold text-white">月老已傾盡三次紅線⋯⋯</p>
+            <p class="text-xs text-slate-400 mt-1">想繼續追問命定之事？請奉上香火，月老方能再算。</p>
+        </div>
+        <a href="https://buymeacoffee.com/techwithlc" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-black px-6 py-3 rounded-2xl transition-all text-sm">
+            ☕ 奉上香火 $5 USD
+        </a>
+        <p class="text-[10px] text-slate-600">Buy Me a Coffee · buymeacoffee.com/techwithlc</p>
+    `;
+    document.getElementById('chat-section').appendChild(wall);
+    wall.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 let _chatMsgId = 0;
-function appendChatMsg(role, text, isTemp = false) {
+function appendChatMsg(role, text) {
     const id   = `cm-${++_chatMsgId}`;
     const wrap = document.getElementById('chat-messages');
     const div  = document.createElement('div');
-    div.id        = id;
-    div.className = role === 'user'
-        ? 'flex justify-end'
-        : 'flex justify-start items-start gap-2';
-    div.innerHTML = role === 'user'
-        ? `<div class="bg-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%] text-sm">${text}</div>`
-        : `<span class="text-xl flex-shrink-0 mt-0.5">🧓🏻</span>
+    div.id = id;
+
+    if (role === 'user') {
+        div.className = 'flex justify-end';
+        div.innerHTML = `<div class="bg-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%] text-sm">${text}</div>`;
+    } else if (role === 'system') {
+        div.className = 'text-center';
+        div.innerHTML = `<span class="text-[10px] text-yellow-500/60 bg-yellow-500/5 px-3 py-1 rounded-full">${text}</span>`;
+    } else {
+        div.className = 'flex justify-start items-start gap-2';
+        div.innerHTML = `<span class="text-xl flex-shrink-0 mt-0.5">🧓🏻</span>
            <div class="bg-red-950/40 border border-red-500/20 rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-[85%] text-sm text-slate-300 leading-relaxed">${text}</div>`;
+    }
     wrap.appendChild(div);
     div.scrollIntoView({ behavior: 'smooth', block: 'end' });
     return id;
@@ -184,7 +241,14 @@ function renderResults(matches) {
     const list = document.getElementById('match-list');
     list.innerHTML = '';
     _chatMsgId = 0;
+    _chatCount = 0;
     document.getElementById('chat-messages').innerHTML = '';
+    const oldPaywall = document.getElementById('chat-paywall');
+    if (oldPaywall) oldPaywall.remove();
+    const chatInput = document.getElementById('chat-input');
+    const chatBtn   = document.getElementById('chat-send-btn');
+    if (chatInput) { chatInput.disabled = false; chatInput.value = ''; }
+    if (chatBtn)   chatBtn.disabled = false;
 
     if (!matches?.length) {
         alert('AI 月老未能生成對象，請重試或調整條件。');
