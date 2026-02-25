@@ -137,6 +137,12 @@ select option { background: #1e293b; color: white; }
 .beam         { animation: beam-pulse 3s   ease-in-out infinite; }
 .particle-dot { position: absolute; border-radius: 50%; animation: particle-rise linear infinite; }
 
+/* ── 現實指數 ── */
+.reality-check {
+    border-color: rgba(148, 163, 184, 0.12);
+    animation: stepFadeIn 0.4s ease;
+}
+
 /* ── 毒舌模式 ── */
 .savage-toggle-wrap {
     display: flex; align-items: center; justify-content: center;

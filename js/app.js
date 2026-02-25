@@ -1,7 +1,8 @@
 /* ── 主應用邏輯 ── */
 
-let _chatMessages = []; // 保存對話上下文
-let _savageMode   = false;
+let _chatMessages  = []; // 保存對話上下文
+let _savageMode    = false;
+let _lastFormData  = null; // 供現實指數使用
 
 function toggleSavage() {
     _savageMode = !_savageMode;
@@ -60,6 +61,7 @@ async function startMatching() {
     };
 
     if (!d.dob) { alert('請填寫出生日期。'); return; }
+    _lastFormData = d;
 
     // 計算使用者年齡，給出合理對象年齡範圍（避免 AI 生小孩）
     const myAge    = new Date().getFullYear() - new Date(d.dob).getFullYear();
@@ -324,6 +326,95 @@ function loadDicebear(wrapId, name) {
     wrap.appendChild(el);
 }
 
+/* ── 現實指數 ── */
+function calcRealityCheck(d) {
+    const incomeRank = { '': 0, '3萬以下': 1, '3–5萬': 2, '5–10萬': 3, '10–20萬': 4, '20萬以上': 5 };
+    const tgIncRank  = { '不限': 0, '有穩定工作即可': 1, '月收5萬以上': 3, '月收10萬以上': 4, '財務自由': 6 };
+    const eduRank    = { '': 0, '其他': 0, '高中／職': 1, '大學': 2, '碩士': 3, '博士': 4 };
+    const tgEduRank  = { '不限': 0, '大學以上': 2, '碩士以上': 3, '博士': 4 };
+
+    const flags = [];
+    let penalty = 0;
+
+    // 收入落差
+    const myInc = incomeRank[d.income]        ?? 0;
+    const tgInc = tgIncRank[d.targetIncome]   ?? 0;
+    const incGap = tgInc - myInc;
+    if (incGap >= 4) {
+        penalty += 40;
+        flags.push({ icon: '💸', text: `月收 ${d.income || '未填'} 想找「${d.targetIncome}」的對象——老夫掐指算過，這叫仙人跳。` });
+    } else if (incGap >= 2) {
+        penalty += 20;
+        flags.push({ icon: '💰', text: `要求對象收入比自己高出一截，有志氣，但你的籌碼是什麼？` });
+    }
+
+    // 學歷落差
+    const myEdu = eduRank[d.education]           ?? 0;
+    const tgEdu = tgEduRank[d.targetEducation]   ?? 0;
+    if (tgEdu > myEdu && tgEdu - myEdu >= 2) {
+        penalty += 20;
+        flags.push({ icon: '🎓', text: `自己 ${d.education || '未填'}，要找 ${d.targetEducation} 的人——學歷不是不行，但老夫建議你先想好話術。` });
+    }
+
+    // 條件清單太長
+    const criteriaLen = (d.criteria || '').length;
+    if (criteriaLen > 100) {
+        penalty += 15;
+        flags.push({ icon: '📋', text: `「其他條件」寫了 ${criteriaLen} 字——你在徵才還是找對象？` });
+    } else if (criteriaLen > 60) {
+        penalty += 8;
+        flags.push({ icon: '📝', text: `條件寫得很詳細，老夫只是提醒你：越長越難找而已。` });
+    }
+
+    // 自己資料幾乎空白卻要求很多
+    const selfBlank = !d.job && !d.income && !d.education;
+    if (selfBlank && (tgInc > 1 || tgEdu > 1)) {
+        penalty += 15;
+        flags.push({ icon: '🪞', text: `自己資料留白，對象條件不少——老夫建議先認識一下自己。` });
+    }
+
+    const score = Math.max(0, 100 - penalty);
+    return { score, flags };
+}
+
+function renderRealityCheck(d) {
+    const el = document.getElementById('reality-check');
+    if (!el) return;
+    const { score, flags } = calcRealityCheck(d);
+    if (!flags.length) { el.classList.add('hidden'); return; }
+
+    const grade = score >= 80 ? { label: '還算清醒', color: 'text-emerald-400' }
+                : score >= 60 ? { label: '有點飄',   color: 'text-yellow-400' }
+                : score >= 40 ? { label: '戀愛腦初期', color: 'text-orange-400' }
+                :               { label: '重症戀愛腦', color: 'text-red-400' };
+
+    el.innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <span class="text-base">🪬</span>
+                <span class="text-[11px] text-slate-400 uppercase tracking-widest font-medium">月老現實指數</span>
+            </div>
+            <div class="flex items-baseline gap-1">
+                <span class="text-2xl font-black ${grade.color}">${score}</span>
+                <span class="text-[10px] text-slate-500">/100</span>
+                <span class="text-[10px] ${grade.color} ml-1 font-bold">${grade.label}</span>
+            </div>
+        </div>
+        <div class="w-full bg-white/5 h-1 rounded-full overflow-hidden mb-3">
+            <div class="h-full rounded-full transition-all duration-700"
+                 style="width:${score}%; background: ${score >= 80 ? '#34d399' : score >= 60 ? '#facc15' : score >= 40 ? '#fb923c' : '#f87171'}"></div>
+        </div>
+        <ul class="space-y-2">
+            ${flags.map(f => `
+                <li class="flex items-start gap-2 text-[11px] text-slate-400 leading-relaxed">
+                    <span class="flex-shrink-0 mt-0.5">${f.icon}</span>
+                    <span>${f.text}</span>
+                </li>`).join('')}
+        </ul>
+    `;
+    el.classList.remove('hidden');
+}
+
 /* ── 結果渲染 ── */
 function infoPill(label, value) {
     if (!value) return '';
@@ -444,6 +535,8 @@ function renderResults(matches, overallRoast) {
 
         setTimeout(() => loadMatchImage(wrapId, imgUrl, initial), i * 300);
     });
+
+    if (_lastFormData) renderRealityCheck(_lastFormData);
 
     lucide.createIcons();
     document.getElementById('form-container').classList.add('hidden');
