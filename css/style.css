@@ -137,6 +137,29 @@ select option { background: #1e293b; color: white; }
 .beam         { animation: beam-pulse 3s   ease-in-out infinite; }
 .particle-dot { position: absolute; border-radius: 50%; animation: particle-rise linear infinite; }
 
+/* ── 模式切換 tabs ── */
+.mode-tabs {
+    display: inline-flex;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 2px;
+    margin-top: 2px;
+}
+.mode-tab {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 16px; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 700;
+    color: rgba(148,163,184,0.6);
+    transition: all 0.2s; letter-spacing: 0.02em;
+}
+.mode-tab.active {
+    background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%);
+    color: #fbbf24;
+    box-shadow: 0 2px 8px rgba(127,29,29,0.4);
+}
+
 /* ── 現實指數 ── */
 .reality-check {
     border-color: rgba(148, 163, 184, 0.12);

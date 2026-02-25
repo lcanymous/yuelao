@@ -2,7 +2,43 @@
 
 let _chatMessages  = []; // 保存對話上下文
 let _savageMode    = false;
+let _appMode       = 'match'; // 'match' | 'analysis'
 let _lastFormData  = null; // 供現實指數使用
+
+function setMode(mode) {
+    _appMode = mode;
+    const isAnalysis = mode === 'analysis';
+
+    // tabs
+    document.getElementById('tab-match').classList.toggle('active', !isAnalysis);
+    document.getElementById('tab-analysis').classList.toggle('active', isAnalysis);
+
+    // step-3 內容區切換
+    document.getElementById('step3-match').classList.toggle('hidden', isAnalysis);
+    document.getElementById('step3-analysis').classList.toggle('hidden', !isAnalysis);
+
+    // 步驟標題
+    const meta = document.getElementById('step-title');
+    if (meta && currentStep === 3) {
+        meta.textContent = isAnalysis ? '分析對象' : '命定條件';
+    }
+
+    // 啟動按鈕文字
+    const btn = document.getElementById('start-matching-btn');
+    if (btn) {
+        btn.innerHTML = isAnalysis
+            ? '月老開始分析 <i data-lucide="scan-search" class="w-4 h-4"></i>'
+            : (_savageMode
+                ? '啟動毒舌演算 <i data-lucide="flame" class="w-4 h-4 fill-current"></i>'
+                : '啟動月老演算 <i data-lucide="zap" class="w-4 h-4 fill-current group-hover:animate-bounce"></i>');
+        lucide.createIcons();
+    }
+}
+
+function handleStart() {
+    if (_appMode === 'analysis') startAnalysis();
+    else startMatching();
+}
 
 function toggleSavage() {
     _savageMode = !_savageMode;
@@ -326,6 +362,196 @@ function loadDicebear(wrapId, name) {
     wrap.appendChild(el);
 }
 
+/* ── 真人分析 ── */
+async function startAnalysis() {
+    const desc    = document.getElementById('real-person-desc').value.trim();
+    const concern = document.getElementById('main-concern').value.trim();
+    const stage   = document.getElementById('rel-stage').value;
+
+    if (!desc) { alert('請描述你心儀的對象，月老才能分析。'); return; }
+
+    const dob    = document.getElementById('dob').value;
+    if (!dob) { alert('請回到步驟一填寫出生日期。'); return; }
+
+    const habits = [...document.querySelectorAll('input[name="habit"]:checked')].map(el => el.value);
+    const myAge  = new Date().getFullYear() - new Date(dob).getFullYear();
+
+    const me = {
+        gender:    document.getElementById('my-gender').value,
+        age:       myAge,
+        zodiac:    document.getElementById('zodiac').value,
+        mbti:      document.getElementById('mbti').value,
+        job:       document.getElementById('job').value,
+        height:    document.getElementById('height').value,
+        location:  document.getElementById('location').value,
+        income:    document.getElementById('income').value,
+        education: document.getElementById('education').value,
+        habits:    habits.join('、'),
+    };
+
+    const engine        = document.getElementById('ai-engine').value;
+    const openRouterKey = document.getElementById('api-key').value;
+    const geminiKey     = document.getElementById('gemini-key').value;
+    const modelId       = document.getElementById('model-id').value || 'qwen/qwen3.5-plus-02-15';
+
+    startLoading(_savageMode);
+
+    try {
+        const savageExtra = _savageMode
+            ? '\n語氣要毒舌犀利，不留情面，像個見過太多感情失敗案例的老神仙，但仍給出有用的建議。'
+            : '\n語氣溫暖有洞察力，像個見過太多感情的智慧老前輩。';
+
+        const system = `你是一位精通現代心理學與東方命理的 AI 月老，擅長分析真實的感情情況。${savageExtra}
+所有回應必須使用繁體中文。
+回傳 JSON，格式如下：
+{
+  "compatibility_score": 0到100的數字,
+  "reading": "月老整體觀察（80字內，有洞察力，點出核心動態）",
+  "strengths": ["你們的優勢1", "優勢2"],
+  "risks": [{"level": "red 或 yellow", "text": "風險描述（25字內）"}],
+  "advice": "月老最想對你說的一句話（40字內）",
+  "next_steps": ["具體可執行的行動1", "行動2", "行動3"]
+}`;
+
+        const userMsg = `我的資料：
+性別：${me.gender}，年齡：${me.age}歲，星座：${me.zodiac}，MBTI：${me.mbti}
+職業：${me.job}，身高：${me.height}cm，居住地：${me.location}
+月收入：${me.income}，學歷：${me.education}，生活習慣：${me.habits}
+
+關係現況：${stage}
+
+對方描述：
+${desc}
+${concern ? `\n我最擔心的：${concern}` : ''}
+
+請分析我們的相容性，點出機會與風險，給我具體建議。`;
+
+        let resultText = '';
+        if (engine === 'proxy') {
+            resultText = await callProxyAPI(userMsg, system);
+        } else if (engine === 'gemini') {
+            if (!geminiKey) throw new Error('請先在設定中輸入 Gemini API Key');
+            resultText = await callGeminiAPI(userMsg, system, geminiKey);
+        } else {
+            if (!openRouterKey) throw new Error('請先在設定中輸入 OpenRouter API Key');
+            resultText = await callOpenRouterAPI(openRouterKey, modelId, userMsg, system);
+        }
+
+        if (!resultText) throw new Error('AI 回傳內容為空');
+        const clean   = resultText.replace(/```json|```/gi, '').trim();
+        const content = JSON.parse(clean);
+
+        // 保存對話上下文供追問使用
+        _chatMessages = [
+            { role: 'system',    content: system + '\n追問時請用自然語言（繁體中文）回覆，不必回傳 JSON。' },
+            { role: 'user',      content: userMsg },
+            { role: 'assistant', content: resultText },
+        ];
+
+        renderAnalysis(content);
+
+    } catch (err) {
+        console.error(err);
+        alert(`月老連線中斷：${err.message}`);
+    } finally {
+        stopLoading();
+    }
+}
+
+function renderAnalysis(data) {
+    const score    = data.compatibility_score ?? 0;
+    const strengths = data.strengths || [];
+    const risks     = data.risks     || [];
+    const steps     = data.next_steps || [];
+
+    const scoreColor = score >= 75 ? '#34d399' : score >= 55 ? '#facc15' : score >= 35 ? '#fb923c' : '#f87171';
+    const scoreLabel = score >= 75 ? '緣分深厚' : score >= 55 ? '有緣有份' : score >= 35 ? '緣分尚淺' : '緣分堪憂';
+
+    const risksHtml = risks.map(r => `
+        <li class="flex items-start gap-2 text-xs leading-relaxed">
+            <span class="flex-shrink-0 mt-0.5">${r.level === 'red' ? '🔴' : '🟡'}</span>
+            <span class="text-slate-300">${r.text}</span>
+        </li>`).join('');
+
+    const strengthsHtml = strengths.map(s => `
+        <li class="flex items-start gap-2 text-xs leading-relaxed">
+            <span class="flex-shrink-0 mt-0.5">✦</span>
+            <span class="text-slate-300">${s}</span>
+        </li>`).join('');
+
+    const stepsHtml = steps.map((s, i) => `
+        <div class="flex items-start gap-3">
+            <span class="flex-shrink-0 w-5 h-5 rounded-full bg-white/10 text-[10px] font-black flex items-center justify-center text-yellow-400">${i + 1}</span>
+            <span class="text-sm text-slate-300 leading-relaxed">${s}</span>
+        </div>`).join('');
+
+    document.getElementById('analysis-body').innerHTML = `
+        <!-- 相容指數 -->
+        <div class="glass-card rounded-3xl p-6 flex items-center gap-5">
+            <div class="flex-shrink-0 text-center">
+                <div class="text-5xl font-black leading-none" style="color:${scoreColor}">${score}</div>
+                <div class="text-[9px] text-slate-500 mt-1 uppercase tracking-widest">相容指數</div>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-sm font-bold" style="color:${scoreColor}">${scoreLabel}</span>
+                    <span class="text-[10px] text-slate-500">/100</span>
+                </div>
+                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-700" style="width:${score}%; background:${scoreColor}"></div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed italic">"${data.reading || ''}"</p>
+            </div>
+        </div>
+
+        <!-- 優勢 + 風險 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="glass-card rounded-2xl p-4 space-y-2">
+                <p class="text-[10px] text-emerald-400 uppercase tracking-widest font-bold mb-3">你們的優勢</p>
+                <ul class="space-y-2">${strengthsHtml || '<li class="text-xs text-slate-500">月老暫無特別觀察</li>'}</ul>
+            </div>
+            <div class="glass-card rounded-2xl p-4 space-y-2">
+                <p class="text-[10px] text-orange-400 uppercase tracking-widest font-bold mb-3">潛在風險</p>
+                <ul class="space-y-2">${risksHtml || '<li class="text-xs text-slate-500">月老暫時沒看到明顯風險</li>'}</ul>
+            </div>
+        </div>
+
+        <!-- 月老最想說的話 -->
+        <div class="glass-card rounded-2xl p-5 border border-yellow-500/20 relative">
+            <div class="absolute -top-3 left-5 text-yellow-500/40 text-3xl leading-none select-none">"</div>
+            <p class="text-[10px] text-yellow-500/60 uppercase tracking-widest mb-2">月老的話</p>
+            <p class="text-sm text-yellow-100 leading-relaxed font-medium">${data.advice || ''}</p>
+        </div>
+
+        <!-- 下一步行動 -->
+        <div class="glass-card rounded-2xl p-5 space-y-3">
+            <p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">月老建議你做</p>
+            <div class="space-y-3">${stepsHtml}</div>
+        </div>
+    `;
+
+    // 重設 chat 狀態
+    _chatMsgId = 0;
+    _chatCount = 0;
+    document.getElementById('chat-messages').innerHTML = '';
+    const oldPaywall = document.getElementById('chat-paywall');
+    if (oldPaywall) oldPaywall.remove();
+    const chatInput = document.getElementById('chat-input');
+    const chatBtn   = document.getElementById('chat-send-btn');
+    if (chatInput) { chatInput.disabled = false; chatInput.value = ''; }
+    if (chatBtn)   chatBtn.disabled = false;
+
+    // 追問提示文字改一下
+    const chatHint = document.querySelector('#chat-section p.text-\\[11px\\]');
+    if (chatHint) chatHint.textContent = '可以繼續問，例如：「他這個行為代表什麼？」「我該怎麼開口？」';
+
+    lucide.createIcons();
+    document.getElementById('form-container').classList.add('hidden');
+    document.getElementById('analysis-container').classList.remove('hidden');
+    document.getElementById('chat-section').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 /* ── 現實指數 ── */
 function calcRealityCheck(d) {
     const incomeRank = { '': 0, '3萬以下': 1, '3–5萬': 2, '5–10萬': 3, '10–20萬': 4, '20萬以上': 5 };
@@ -548,6 +774,7 @@ function renderResults(matches, overallRoast) {
 function resetApp() {
     document.getElementById('form-container').classList.remove('hidden');
     document.getElementById('results-container').classList.add('hidden');
+    document.getElementById('analysis-container').classList.add('hidden');
     document.getElementById('chat-section').classList.add('hidden');
     _chatMessages = [];
     [1, 2, 3].forEach(n => document.getElementById(`step-${n}`).classList.remove('active'));
