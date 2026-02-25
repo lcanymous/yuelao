@@ -1,6 +1,22 @@
 /* ── 主應用邏輯 ── */
 
 let _chatMessages = []; // 保存對話上下文
+let _savageMode   = false;
+
+function toggleSavage() {
+    _savageMode = !_savageMode;
+    const sw   = document.getElementById('savage-switch');
+    const hint = document.getElementById('savage-hint');
+    const btn  = document.getElementById('start-matching-btn');
+    sw.classList.toggle('on', _savageMode);
+    hint.classList.toggle('hidden', !_savageMode);
+    if (btn) {
+        btn.innerHTML = _savageMode
+            ? '啟動毒舌演算 <i data-lucide="flame" class="w-4 h-4 fill-current"></i>'
+            : '啟動月老演算 <i data-lucide="zap" class="w-4 h-4 fill-current group-hover:animate-bounce"></i>';
+        lucide.createIcons();
+    }
+}
 
 function toggleSettings() {
     document.getElementById('settings-modal').classList.toggle('hidden');
@@ -50,10 +66,20 @@ async function startMatching() {
     const ageMin   = Math.max(18, myAge - 8);
     const ageMax   = myAge + 8;
 
-    startLoading();
+    startLoading(_savageMode);
 
     try {
-        const system = `你是一位精通現代心理學與東方命理的 AI 月老。根據使用者資料生成 3 位符合性別要求（${d.targetGender}）的虛擬理想對象。
+        const system = _savageMode
+            ? `你是一位精通現代心理學與東方命理，但說話毒舌、犀利、不留情面的 AI 月老。
+你有義務批評使用者不切實際的期待、自相矛盾的條件、戀愛腦思維。
+語氣：見過太多傻瓜的老神仙，乾式幽默，不罵人但句句到肉，讓人想笑又想哭。
+根據使用者資料生成 3 位符合性別要求（${d.targetGender}）的虛擬理想對象。
+重要限制：對象年齡必須在 ${ageMin}–${ageMax} 歲之間，且必須是現實生活中可能存在的成年人。
+所有回應必須使用繁體中文。
+回應必須是 JSON，包含：
+  overall_roast（對使用者整體一句毒評，40字內，要刺但公平，點出最大矛盾或戀愛腦症狀），
+  matches 陣列，每筆包含：name, age, gender, mbti, zodiac, job, location, income, education, height, match_score, reason, vibe, key_trait, roast（月老對此配對的毒語，25字內，嘲諷使用者或點出現實落差）。`
+            : `你是一位精通現代心理學與東方命理的 AI 月老。根據使用者資料生成 3 位符合性別要求（${d.targetGender}）的虛擬理想對象。
 重要限制：對象年齡必須在 ${ageMin}–${ageMax} 歲之間，且必須是現實生活中可能存在的成年人。
 所有回應必須使用繁體中文。
 回應必須是 JSON，包含陣列 "matches"，每筆包含：name, age, gender, mbti, zodiac, job, location, income, education, height, match_score, reason, vibe, key_trait。`;
@@ -93,7 +119,7 @@ async function startMatching() {
             { role: 'assistant', content: resultText },
         ];
 
-        renderResults(content.matches);
+        renderResults(content.matches, content.overall_roast);
 
     } catch (err) {
         console.error(err);
@@ -307,7 +333,7 @@ function infoPill(label, value) {
     </span>`;
 }
 
-function renderResults(matches) {
+function renderResults(matches, overallRoast) {
     const list = document.getElementById('match-list');
     list.innerHTML = '';
     _chatMsgId = 0;
@@ -326,13 +352,32 @@ function renderResults(matches) {
         return;
     }
 
+    // 毒舌模式：在結果頂部插入月老總批語 banner
+    const roastBanner = document.getElementById('overall-roast-banner');
+    if (overallRoast && _savageMode) {
+        roastBanner.innerHTML = `
+            <span class="text-2xl flex-shrink-0">🧓🏻</span>
+            <div>
+                <p class="text-[10px] text-orange-400/70 uppercase tracking-widest mb-1">月老批語</p>
+                <p class="text-sm text-orange-100 leading-relaxed italic">"${overallRoast}"</p>
+            </div>
+        `;
+        roastBanner.classList.remove('hidden');
+    } else {
+        roastBanner.classList.add('hidden');
+        roastBanner.innerHTML = '';
+    }
+
     matches.forEach((m, i) => {
         const div = document.createElement('div');
+        const isTop = i === 0;
         div.className = `match-card glass-card p-5 rounded-3xl relative ${
-            i === 0 ? 'border border-yellow-500/40 shadow-lg shadow-yellow-500/10' : 'border border-white/5'
+            isTop
+                ? (_savageMode ? 'savage-card shadow-lg shadow-orange-900/20' : 'border border-yellow-500/40 shadow-lg shadow-yellow-500/10')
+                : (_savageMode ? 'savage-card' : 'border border-white/5')
         }`;
 
-        const chName = (m.name || '').replace(/\(.*?\)/g, '').trim();
+        const chName  = (m.name || '').replace(/\(.*?\)/g, '').trim();
         const initial = chName ? chName.charAt(0) : '？';
         const score   = m.match_score || 0;
 
@@ -344,14 +389,28 @@ function renderResults(matches) {
             infoPill('身高',  m.height),
         ].filter(Boolean).join('');
 
-        const imgUrl  = buildImgUrl(m);
-        const wrapId  = `img-wrap-${i}`;
+        const imgUrl = buildImgUrl(m);
+        const wrapId = `img-wrap-${i}`;
+
+        // 毒舌模式的首選標籤
+        const topBadge = isTop
+            ? (_savageMode
+                ? `<div class="absolute -top-3 left-5 bg-orange-600 text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest">最不慘選擇 🔥</div>`
+                : `<div class="absolute -top-3 left-5 bg-yellow-500 text-black text-[10px] font-black px-3 py-1 rounded-full tracking-widest">命定首選 ✦</div>`)
+            : '';
+
+        // 毒舌月老對此配對的批語
+        const roastBlock = (m.roast && _savageMode)
+            ? `<div class="roast-pill flex items-start gap-1.5">
+                   <span class="flex-shrink-0 mt-0.5">🧓🏻</span>
+                   <span>${m.roast}</span>
+               </div>`
+            : '';
 
         div.innerHTML = `
-            ${i === 0 ? `<div class="absolute -top-3 left-5 bg-yellow-500 text-black text-[10px] font-black px-3 py-1 rounded-full tracking-widest">命定首選 ✦</div>` : ''}
+            ${topBadge}
             <div class="flex gap-4 pt-1">
                 <div class="flex flex-col items-center gap-2 flex-shrink-0 w-20">
-                    <!-- 照片容器：先顯示字母頭像，背景載入 AI 圖 -->
                     <div id="${wrapId}" class="w-20 h-20 rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0 yuelao-gradient flex items-center justify-center font-black text-yellow-500 text-2xl">
                         ${initial}
                     </div>
@@ -377,12 +436,12 @@ function renderResults(matches) {
                         <i data-lucide="star" class="w-3 h-3 flex-shrink-0"></i>
                         <span>魅力點：${m.key_trait || '魅力十足'}</span>
                     </div>
+                    ${roastBlock}
                 </div>
             </div>
         `;
         list.appendChild(div);
 
-        // 背景非同步載入 AI 圖（不阻塞卡片渲染）
         setTimeout(() => loadMatchImage(wrapId, imgUrl, initial), i * 300);
     });
 
