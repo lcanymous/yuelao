@@ -789,3 +789,55 @@ function resetApp() {
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+/* ── 靈魂記憶（localStorage）── */
+const PROFILE_KEY = 'yuelao_profile';
+
+function saveProfile() {
+    const habits = [...document.querySelectorAll('input[name="habit"]:checked')].map(el => el.value);
+    const profile = {
+        myGender: document.getElementById('my-gender')?.value,
+        dob:      document.getElementById('dob')?.value,
+        zodiac:   document.getElementById('zodiac')?.value,
+        mbti:     document.getElementById('mbti')?.value,
+        height:   document.getElementById('height')?.value,
+        stats:    document.getElementById('stats')?.value,
+        job:      document.getElementById('job')?.value,
+        location: document.getElementById('location')?.value,
+        income:   document.getElementById('income')?.value,
+        education:document.getElementById('education')?.value,
+        familyBg: document.getElementById('family-bg')?.value,
+        habits,
+    };
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+function loadProfile() {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (!raw) return;
+    try {
+        const p = JSON.parse(raw);
+        const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+        set('my-gender', p.myGender);
+        set('dob',       p.dob);
+        set('zodiac',    p.zodiac);
+        set('mbti',      p.mbti);
+        set('height',    p.height);
+        set('stats',     p.stats);
+        set('job',       p.job);
+        set('location',  p.location);
+        set('income',    p.income);
+        set('education', p.education);
+        set('family-bg', p.familyBg);
+        document.querySelectorAll('input[name="habit"]').forEach(el => {
+            el.checked = p.habits?.includes(el.value) ?? false;
+        });
+    } catch { /* corrupt data — silently ignore */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadProfile();
+    ['step-1', 'step-2'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', saveProfile);
+    });
+});
