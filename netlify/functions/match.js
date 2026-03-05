@@ -5,7 +5,7 @@ exports.handler = async (event) => {
 
     const key = process.env.OPENROUTER_API_KEY;
     if (!key) {
-        return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured' }) };
+        return { statusCode: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'API key not configured' }) };
     }
 
     const { messages, model, json = true } = JSON.parse(event.body);

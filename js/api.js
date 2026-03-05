@@ -11,8 +11,9 @@ async function callProxyAPI(prompt, system, { messages = null, json = true } = {
         body: JSON.stringify({ model: 'qwen/qwen3.5-plus-02-15', messages: msgs, json }),
     });
     if (!res.ok) {
-        const e = await res.json();
-        throw new Error(e.error?.message || '月老雲端暫時不在，請稍後再試');
+        let msg = '月老雲端暫時不在，請稍後再試';
+        try { const e = await res.json(); msg = e.error?.message || msg; } catch (_) {}
+        throw new Error(msg);
     }
     const r = await res.json();
     return r.choices?.[0]?.message?.content;
@@ -67,8 +68,9 @@ async function callOpenRouterAPI(key, model, prompt, system) {
         }),
     });
     if (!res.ok) {
-        const e = await res.json();
-        throw new Error(e.error?.message || 'OpenRouter 連線失敗');
+        let msg = 'OpenRouter 連線失敗';
+        try { const e = await res.json(); msg = e.error?.message || msg; } catch (_) {}
+        throw new Error(msg);
     }
     const r = await res.json();
     return r.choices?.[0]?.message?.content;

@@ -176,7 +176,7 @@ reason 欄位（60字內）：用溫暖、有畫面感的語氣描述這段緣�
         }
 
         if (!resultText) throw new Error('AI 回傳內容為空');
-        const clean   = resultText.replace(/```json|```/gi, '').trim();
+        const clean   = resultText.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```json|```/gi, '').trim();
         const content = JSON.parse(clean);
 
         // 保存對話上下文供追問使用
@@ -477,7 +477,7 @@ ${concern ? `\n我最擔心的：${concern}` : ''}
         }
 
         if (!resultText) throw new Error('AI 回傳內容為空');
-        const clean   = resultText.replace(/```json|```/gi, '').trim();
+        const clean   = resultText.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```json|```/gi, '').trim();
         const content = JSON.parse(clean);
 
         // 保存對話上下文供追問使用
