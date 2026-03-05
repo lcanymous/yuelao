@@ -8,7 +8,7 @@ async function callProxyAPI(prompt, system, { messages = null, json = true } = {
     const res = await fetch('/.netlify/functions/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'qwen/qwen3.5-plus-02-15', messages: msgs, json }),
+        body: JSON.stringify({ model: 'qwen/qwen-2.5-72b-instruct', messages: msgs, json }),
     });
     if (!res.ok) {
         let msg = '月老雲端暫時不在，請稍後再試';

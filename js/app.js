@@ -96,7 +96,7 @@ async function startMatching() {
     const engine        = document.getElementById('ai-engine').value;
     const openRouterKey = document.getElementById('api-key').value;
     const geminiKey     = document.getElementById('gemini-key').value;
-    const modelId       = document.getElementById('model-id').value || 'qwen/qwen3.5-plus-02-15';
+    const modelId       = document.getElementById('model-id').value || 'qwen/qwen-2.5-72b-instruct';
 
     const habits = [...document.querySelectorAll('input[name="habit"]:checked')]
         .map(el => el.value);
@@ -229,7 +229,7 @@ async function askYuelao() {
         const engine        = document.getElementById('ai-engine').value;
         const openRouterKey = document.getElementById('api-key').value;
         const geminiKey     = document.getElementById('gemini-key').value;
-        const modelId       = document.getElementById('model-id').value || 'qwen/qwen3.5-plus-02-15';
+        const modelId       = document.getElementById('model-id').value || 'qwen/qwen-2.5-72b-instruct';
 
         _chatMessages.push({ role: 'user', content: q });
 
@@ -431,7 +431,7 @@ async function startAnalysis() {
     const engine        = document.getElementById('ai-engine').value;
     const openRouterKey = document.getElementById('api-key').value;
     const geminiKey     = document.getElementById('gemini-key').value;
-    const modelId       = document.getElementById('model-id').value || 'qwen/qwen3.5-plus-02-15';
+    const modelId       = document.getElementById('model-id').value || 'qwen/qwen-2.5-72b-instruct';
 
     startLoading(_savageMode);
 

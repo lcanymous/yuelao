@@ -11,7 +11,7 @@ exports.handler = async (event) => {
     const { messages, model, json = true } = JSON.parse(event.body);
 
     const body = {
-        model: model || 'qwen/qwen3.5-plus-02-15',
+        model: model || 'qwen/qwen-2.5-72b-instruct',
         messages,
     };
     if (json) body.response_format = { type: 'json_object' };
