@@ -70,6 +70,8 @@ let _chatCount      // free question counter (paywall at 3)
 let _lastFormData   // cached for reality check
 ```
 
+**Profile persistence (靈魂記憶):** User's own profile fields auto-save to `localStorage` under key `yuelao_profile` via `saveProfile()` / `loadProfile()`. Loaded on page init so the wizard is pre-filled on return visits.
+
 **Match mode:** generates 3 virtual ideal partners with photos, scores, and optional roasts.
 **Analysis mode:** analyzes compatibility with a real described person — returns score, strengths, risks, advice.
 **Reality Check:** pure client-side, zero API — `calcRealityCheck()` flags contradictions (income gap, education gap, etc.) and gives a "戀愛腦 severity" score 0–100.

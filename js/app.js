@@ -1,3 +1,30 @@
+/* ── Toast 通知 ── */
+function showToast(msg, type = 'error') {
+    const existing = document.getElementById('yuelao-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'yuelao-toast';
+    const isError = type === 'error';
+    toast.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-sm font-medium max-w-xs text-center transition-all duration-300 opacity-0 translate-y-2 ${
+        isError ? 'bg-red-950/90 border border-red-500/30 text-red-200' : 'bg-emerald-950/90 border border-emerald-500/30 text-emerald-200'
+    }`;
+    toast.innerHTML = `<span>${isError ? '⚠️' : '✓'}</span><span>${escapeHtml(msg)}</span>`;
+    document.body.appendChild(toast);
+
+    // Animate in
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+    });
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(8px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
 /* ── 主應用邏輯 ── */
 
 let _chatMessages  = []; // 保存對話上下文
@@ -96,7 +123,7 @@ async function startMatching() {
         targetVibe:      document.getElementById('target_vibe').value,
     };
 
-    if (!d.dob) { alert('請填寫出生日期。'); return; }
+    if (!d.dob) { showToast('請填寫出生日期。'); return; }
     _lastFormData = d;
 
     // 計算使用者年齡，給出合理對象年齡範圍（避免 AI 生小孩）
@@ -117,8 +144,10 @@ async function startMatching() {
 回應必須是 JSON，包含：
   overall_roast（對使用者整體一句毒評，40字內，要刺但公平，點出最大矛盾或戀愛腦症狀），
   matches 陣列，每筆包含：name, age, gender, mbti, zodiac, job, location, income, education, height, match_score, reason, vibe, key_trait, roast（月老對此配對的毒語，25字內，嘲諷使用者或點出現實落差）。`
-            : `你是一位精通現代心理學與東方命理的 AI 月老。根據使用者資料生成 3 位符合性別要求（${d.targetGender}）的虛擬理想對象。
-重要限制：對象年齡必須在 ${ageMin}–${ageMax} 歲之間，且必須是現實生活中可能存在的成年人。
+            : `你是月老——一位有溫度、有智慧、見過人間千萬種愛情的神仙老頭。你說話溫柔卻有洞察力，像個懂你的老朋友，而不是冰冷的演算法。你相信每個人都值得被愛，也相信緣分是真實存在的。
+根據使用者的靈魂檔案，為他們召喚 3 位可能命定的對象（性別：${d.targetGender}）。
+重要限制：對象年齡必須在 ${ageMin}–${ageMax} 歲之間，必須是現實生活中真實可能存在的成年人。
+reason 欄位（60字內）：用溫暖、有畫面感的語氣描述這段緣分的可能性——不是列優缺點清單，而是讓使用者感受到「這個人真的懂我」的那種心動感。語氣要像老朋友在幫你介紹，帶著一點點期待與祝福。
 所有回應必須使用繁體中文。
 回應必須是 JSON，包含陣列 "matches"，每筆包含：name, age, gender, mbti, zodiac, job, location, income, education, height, match_score, reason, vibe, key_trait。`;
 
@@ -161,7 +190,7 @@ async function startMatching() {
 
     } catch (err) {
         console.error(err);
-        alert(`月老連線中斷：${err.message}`);
+        showToast(`月老連線中斷：${err.message}`);
     } finally {
         stopLoading();
     }
@@ -265,6 +294,16 @@ function showChatPaywall() {
 }
 
 let _chatMsgId = 0;
+
+function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function formatChatText(str) {
+    return escapeHtml(str).replace(/\n/g, '<br>');
+}
+
 function appendChatMsg(role, text) {
     const id   = `cm-${++_chatMsgId}`;
     const wrap = document.getElementById('chat-messages');
@@ -273,14 +312,14 @@ function appendChatMsg(role, text) {
 
     if (role === 'user') {
         div.className = 'flex justify-end';
-        div.innerHTML = `<div class="bg-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%] text-sm">${text}</div>`;
+        div.innerHTML = `<div class="bg-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%] text-sm">${escapeHtml(text)}</div>`;
     } else if (role === 'system') {
         div.className = 'text-center';
-        div.innerHTML = `<span class="text-[10px] text-yellow-500/60 bg-yellow-500/5 px-3 py-1 rounded-full">${text}</span>`;
+        div.innerHTML = `<span class="text-[10px] text-yellow-500/60 bg-yellow-500/5 px-3 py-1 rounded-full">${escapeHtml(text)}</span>`;
     } else {
         div.className = 'flex justify-start items-start gap-2';
         div.innerHTML = `<span class="text-xl flex-shrink-0 mt-0.5">🧓🏻</span>
-           <div class="bg-red-950/40 border border-red-500/20 rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-[85%] text-sm text-slate-300 leading-relaxed">${text}</div>`;
+           <div class="bg-red-950/40 border border-red-500/20 rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-[85%] text-sm text-slate-300 leading-relaxed">${formatChatText(text)}</div>`;
     }
     wrap.appendChild(div);
     div.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -289,7 +328,7 @@ function appendChatMsg(role, text) {
 
 function updateChatMsg(id, text) {
     const el = document.querySelector(`#${id} div:last-child`);
-    if (el) el.textContent = text;
+    if (el) el.innerHTML = formatChatText(text);
 }
 
 
@@ -368,10 +407,10 @@ async function startAnalysis() {
     const concern = document.getElementById('main-concern').value.trim();
     const stage   = document.getElementById('rel-stage').value;
 
-    if (!desc) { alert('請描述你心儀的對象，月老才能分析。'); return; }
+    if (!desc) { showToast('請描述你心儀的對象，月老才能分析。'); return; }
 
     const dob    = document.getElementById('dob').value;
-    if (!dob) { alert('請回到步驟一填寫出生日期。'); return; }
+    if (!dob) { showToast('請回到步驟一填寫出生日期。'); return; }
 
     const habits = [...document.querySelectorAll('input[name="habit"]:checked')].map(el => el.value);
     const myAge  = new Date().getFullYear() - new Date(dob).getFullYear();
@@ -452,7 +491,7 @@ ${concern ? `\n我最擔心的：${concern}` : ''}
 
     } catch (err) {
         console.error(err);
-        alert(`月老連線中斷：${err.message}`);
+        showToast(`月老連線中斷：${err.message}`);
     } finally {
         stopLoading();
     }
@@ -607,7 +646,23 @@ function renderRealityCheck(d) {
     const el = document.getElementById('reality-check');
     if (!el) return;
     const { score, flags } = calcRealityCheck(d);
-    if (!flags.length) { el.classList.add('hidden'); return; }
+    if (!flags.length) {
+        el.innerHTML = `
+            <div class="flex items-center gap-3">
+                <span class="text-base">🪬</span>
+                <div>
+                    <p class="text-[10px] text-emerald-400/70 uppercase tracking-widest font-bold">月老現實指數</p>
+                    <p class="text-xs text-slate-400 mt-0.5">條件合情合理，月老的紅線已悄悄為你繫上。</p>
+                </div>
+                <div class="ml-auto text-right flex-shrink-0">
+                    <span class="text-2xl font-black text-emerald-400">100</span>
+                    <span class="text-[10px] text-slate-500 block">/100</span>
+                </div>
+            </div>
+        `;
+        el.classList.remove('hidden');
+        return;
+    }
 
     const grade = score >= 80 ? { label: '還算清醒', color: 'text-emerald-400' }
                 : score >= 60 ? { label: '有點飄',   color: 'text-yellow-400' }
@@ -664,7 +719,7 @@ function renderResults(matches, overallRoast) {
     if (chatBtn)   chatBtn.disabled = false;
 
     if (!matches?.length) {
-        alert('AI 月老未能生成對象，請重試或調整條件。');
+        showToast('AI 月老未能生成對象，請重試或調整條件。');
         resetApp();
         return;
     }
@@ -748,7 +803,7 @@ function renderResults(matches, overallRoast) {
                     </div>
                     <div class="flex flex-wrap gap-1.5">${pills}</div>
                     <p class="text-xs italic text-slate-300 bg-white/5 rounded-xl px-3 py-2">"${m.vibe || '神秘氛圍'}"</p>
-                    <p class="text-[11px] text-slate-400 leading-relaxed">${m.reason || ''}</p>
+                    ${m.reason ? `<p class="text-xs text-slate-300 leading-relaxed border-l-2 border-red-500/30 pl-3 py-0.5">${m.reason}</p>` : ''}
                     <div class="text-[10px] text-yellow-500/60 bg-yellow-500/5 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
                         <i data-lucide="star" class="w-3 h-3 flex-shrink-0"></i>
                         <span>魅力點：${m.key_trait || '魅力十足'}</span>
