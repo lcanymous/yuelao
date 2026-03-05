@@ -181,7 +181,7 @@ reason 欄位（60字內）：用溫暖、有畫面感的語氣描述這段緣�
 
         // 保存對話上下文供追問使用
         _chatMessages = [
-            { role: 'system',    content: system + '\n追問時請用自然語言（繁體中文）回覆，不必回傳 JSON。' },
+            { role: 'system',    content: system + '\n\n【重要】追問階段：絕對禁止回傳 JSON 或任何程式碼區塊。請用溫暖自然的繁體中文口語回答，像朋友聊天一樣，不超過150字。' },
             { role: 'user',      content: userMsg },
             { role: 'assistant', content: resultText },
         ];
@@ -245,7 +245,7 @@ async function askYuelao() {
         }
 
         _chatMessages.push({ role: 'assistant', content: reply });
-        updateChatMsg(thinkingId, reply);
+        updateChatMsg(thinkingId, cleanChatReply(reply));
 
         // 用完後鎖定輸入框
         if (_chatCount >= CHAT_FREE_LIMIT) {
@@ -302,6 +302,28 @@ function escapeHtml(str) {
 
 function formatChatText(str) {
     return escapeHtml(str).replace(/\n/g, '<br>');
+}
+
+// AI 有時仍會在 chat 中回傳 JSON block — 轉成可讀文字
+function cleanChatReply(text) {
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const raw    = fenced ? fenced[1].trim() : text.trim();
+
+    // 如果是 JSON，嘗試抽出可讀欄位
+    try {
+        const j = JSON.parse(raw);
+        const parts = [];
+        if (j.reading)   parts.push(j.reading);
+        if (j.advice)    parts.push(j.advice);
+        if (j.reason)    parts.push(j.reason);
+        if (j.strengths?.length) parts.push('優勢：' + j.strengths.join('、'));
+        if (j.risks?.length)     parts.push('風險：' + j.risks.map(r => r.text || r).join('、'));
+        if (j.next_steps?.length) parts.push('建議：' + j.next_steps.join('；'));
+        if (parts.length) return parts.join('\n\n');
+    } catch (_) {}
+
+    // 不是 JSON：只去掉 code fence 符號
+    return text.replace(/```[\w]*\n?/g, '').replace(/```/g, '').trim();
 }
 
 function appendChatMsg(role, text) {
@@ -482,7 +504,7 @@ ${concern ? `\n我最擔心的：${concern}` : ''}
 
         // 保存對話上下文供追問使用
         _chatMessages = [
-            { role: 'system',    content: system + '\n追問時請用自然語言（繁體中文）回覆，不必回傳 JSON。' },
+            { role: 'system',    content: system + '\n\n【重要】追問階段：絕對禁止回傳 JSON 或任何程式碼區塊。請用溫暖自然的繁體中文口語回答，像朋友聊天一樣，不超過150字。' },
             { role: 'user',      content: userMsg },
             { role: 'assistant', content: resultText },
         ];
